@@ -694,11 +694,11 @@ static const GenericThread::Config<BluetoothMessage> threadConfig = {
         {
             // Auto-off logic: only consider BT connections (ignore USB/AUX per request),
             // and respect DFU, pairing and streaming states (do not auto-off while any active).
-            if ( !s_bluetooth.dfu_mode_is_active &&
+            /*if ( !s_bluetooth.dfu_mode_is_active &&
                 s_bluetooth.pairing_state == ACTIONSLINK_BT_PAIRING_STATE_IDLE &&
                 s_bluetooth.csb_state == ACTIONSLINK_CSB_STATE_DISABLED &&
                 !isProperty(Tub::StreamingActive{false}))
-            {
+            { */
                 if (s_bluetooth.number_of_connected_devices == 0)
                 {
                     if (s_bluetooth.last_no_bt_connection_ts == 0u)
@@ -722,7 +722,7 @@ static const GenericThread::Config<BluetoothMessage> threadConfig = {
                     // There is at least one BT connection — clear the idle timer
                     s_bluetooth.last_no_bt_connection_ts = 0u;
                 }
-            }
+            //}
             else
             {
                 // Conditions prevent auto-off, reset timer so full interval is required after they clear
