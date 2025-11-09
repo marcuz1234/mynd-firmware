@@ -692,6 +692,42 @@ static const GenericThread::Config<BluetoothMessage> threadConfig = {
 
         if (isProperty(Tus::PowerState::On))
         {
+            // Auto-off logic: only consider BT connections (ignore USB/AUX per request),
+            // and respect DFU, pairing and streaming states (do not auto-off while any active).
+            if ( !s_bluetooth.dfu_mode_is_active &&
+                s_bluetooth.pairing_state == ACTIONSLINK_BT_PAIRING_STATE_IDLE &&
+                s_bluetooth.csb_state == ACTIONSLINK_CSB_STATE_DISABLED &&
+                !isProperty(Tub::StreamingActive{false}))
+            {
+                if (s_bluetooth.number_of_connected_devices == 0)
+                {
+                    if (s_bluetooth.last_no_bt_connection_ts == 0u)
+                    {
+                        // Start the idle timer
+                        s_bluetooth.last_no_bt_connection_ts = get_systick();
+                    }
+                    else if (board_get_ms_since(s_bluetooth.last_no_bt_connection_ts) >= 300000u)
+                    {
+                        log_info("No BT connections for > 5 min — powering BT off");
+                        if (actionslink_set_power_state(ACTIONSLINK_POWER_STATE_OFF) != 0)
+                        {
+                            log_error("BT power off request failed");
+                        }
+                        // reset timer so we don't repeatedly request
+                        s_bluetooth.last_no_bt_connection_ts = 0u;
+                    }
+                }
+                else
+                {
+                    // There is at least one BT connection — clear the idle timer
+                    s_bluetooth.last_no_bt_connection_ts = 0u;
+                }
+            }
+            else
+            {
+                // Conditions prevent auto-off, reset timer so full interval is required after they clear
+                s_bluetooth.last_no_bt_connection_ts = 0u;
+            }
 
             actionslink_tick();
         }
