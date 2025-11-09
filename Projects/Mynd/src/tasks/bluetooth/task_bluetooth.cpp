@@ -852,4 +852,467 @@ static const GenericThread::Config<BluetoothMessage> threadConfig = {
                     }
                     SyncPrimitive::notify(ot_id);
                 },
-... (truncated for brevity in the tool call) ...
+                [](const Teufel::Ux::System::BatteryLevel &p)
+                {
+                    log_dbg("Report battery level: %u", p.value);
+                    actionslink_send_battery_level(p.value);
+                },
+                [](const Teufel::Ux::System::ChargerStatus &p)
+                {
+                    if (!isProperty(Teufel::Ux::System::PowerState::Off))
+                        actionslink_send_charger_status(Teufel::Core::mapValue(ChargerStatusMapper, p)
+                                                            .value_or(ACTIONSLINK_CHARGER_STATUS_NOT_CONNECTED));
+                },
+                [](const Teufel::Ux::System::ChargeType &p)
+                {
+                    if (not isProperty(Tus::PowerState::Off))
+                        actionslink_send_battery_friendly_charging_notification(
+                            p == Ux::System::ChargeType::BatteryFriendly);
+                },
+                [](const Teufel::Ux::System::Color &p)
+                {
+                    auto color = Teufel::Core::mapValue(ColorMapper, p).value_or(ACTIONSLINK_DEVICE_COLOR_BLACK);
+                    if (actionslink_send_color_id(color) != 0)
+                    {
+                        // log_error("Failed to send color");
+                    }
+                },
+                [](const ActionsReady &)
+                {
+                    log_info("Actions is ready");
+                    // Exit DFU mode if active
+                    s_bluetooth.dfu_mode_is_active = false;
+                },
+                [](const Teufel::Ux::Bluetooth::BtWakeUp &)
+                {
+                    log_highlight("BT wakeup");
+
+                    if (!s_bluetooth.audio_source.has_value())
+                    {
+#if !defined(BOOTLOADER)
+                        log_error("Got wakeup but audio source is not set yet");
+#endif
+                        return;
+                    }
+
+                    // TODO: Confirm with UX on whether we want to do this regardless of audio source
+                    log_debug("Enabling bluetooth reconnection");
+                    if (actionslink_enable_bt_reconnection(true) != 0)
+                    {
+                        log_error("Failed to enable bluetooth reconnection");
+                    }
+                },
+                [](const Teufel::Ux::Bluetooth::VolumeChange &p)
+                {
+                    log_info("Volume %s", getDesc(p));
+                    switch (p)
+                    {
+                        case Tub::VolumeChange::Up:
+                            actionslink_increase_volume();
+                            break;
+                        case Tub::VolumeChange::Down:
+                            actionslink_decrease_volume();
+                            break;
+                    }
+                },
+                [](const Teufel::Ux::Bluetooth::StartPairing &p)
+                {
+                    log_highlight("Start pairing");
+                    s_bluetooth.was_streaming = getProperty<Tub::StreamingActive>().value;
+                    if (actionslink_start_bt_pairing() != 0)
+                    {
+                        // log_error("Failed to start pairing");
+                    }
+                },
+                [](const Teufel::Ux::Bluetooth::MultichainPairing &p)
+                {
+                    log_highlight("Start multichain pairing");
+                    s_bluetooth.was_streaming = getProperty<Tub::StreamingActive>().value;
+                    if (actionslink_start_multichain_pairing() != 0)
+                        log_error("Failed to start multichain pairing");
+                },
+                [](const Teufel::Ux::Bluetooth::StopPairingAndMultichain &p)
+                {
+                    log_highlight("Stopping pairing and multichain. Reason: %d", p.reason);
+                    if (s_bluetooth.pairing_state == ACTIONSLINK_BT_PAIRING_STATE_BT_PAIRING)
+                    {
+                        if (actionslink_stop_pairing() != 0)
+                        {
+                            log_error("Failed to stop pairing");
+                        }
+                    }
+
+                    if (s_bluetooth.csb_state != ACTIONSLINK_CSB_STATE_DISABLED)
+                    {
+                        if (actionslink_exit_csb_mode(Teufel::Core::mapValue(MultichainExitReasonMapper, p.reason)
+                                                          .value_or(ACTIONSLINK_CSB_MASTER_EXIT_REASON_UNKNOWN)) != 0)
+                        {
+                            log_error("Failed to exit CSB mode");
+                        }
+                    }
+                },
+                [](const Teufel::Ux::Bluetooth::NotifyAuxConnectionChange &p)
+                {
+                    log_debug("Notifying aux connection change: %d", p.connected);
+                    if (actionslink_send_aux_connection_notification(p.connected) != 0)
+                    {
+                        log_error("Failed to notify aux connection");
+                    }
+                },
+                [](const Teufel::Ux::Bluetooth::NotifyUsbConnectionChange &p)
+                {
+                    log_debug("Notifying USB connection change: %d", p.connected);
+                    s_bluetooth.usb_plug_connected = p.connected;
+                    if (actionslink_send_usb_connection_notification(p.connected) != 0)
+                    {
+                        log_error("Failed to notify USB con");
+                    }
+                },
+                [](const Teufel::Ux::Bluetooth::EnterDfuMode &p)
+                {
+                    log_highlight("Entering DFU mode");
+                    if (actionslink_enter_dfu_mode() != 0)
+                    {
+#if !defined(BOOTLOADER)
+                        log_error("Failed to enter DFU mode");
+#endif
+                    }
+                },
+                [](const Teufel::Ux::Bluetooth::ClearDeviceList &)
+                {
+                    log_highlight("Clearing paired device list");
+                    // This disconnects all devices and deletes all paired devices
+                    if (actionslink_clear_bt_paired_device_list() != 0)
+                    {
+                        log_error("Failed to clear device list");
+                    }
+
+                    postMessage(ot_id,
+                                Tua::RequestSoundIcon{ACTIONSLINK_SOUND_ICON_POSITIVE_FEEDBACK,
+                                                      ACTIONSLINK_SOUND_ICON_PLAYBACK_MODE_PLAY_IMMEDIATELY, false});
+
+                    postMessage(ot_id, Teufel::Ux::Bluetooth::StartPairing{});
+                },
+                [](Tus::FactoryReset &)
+                {
+                    // Clear paired device list
+                    if (actionslink_clear_bt_paired_device_list() != 0)
+#if !defined(BOOTLOADER)
+                    {
+                        log_error("Failed to clear paired device list");
+                    }
+                    else
+                        log_info("Cleared paired device list");
+#endif
+
+                    // Set volume to 40%
+                    if (actionslink_set_bt_absolute_avrcp_volume(CONFIG_DEFAULT_ABSOLUTE_AVRCP_VOLUME) != 0)
+                    {
+#if !defined(BOOTLOADER)
+                        log_error("Failed to set default avrcp volume");
+#endif
+                    }
+                    else
+                        log_info("AVRCP Volume: %d", getProperty<Tua::VolumeLevel>().value);
+
+                    s_bluetooth.number_of_connected_devices = 0;
+                    log_info("Connected devices: %d", s_bluetooth.number_of_connected_devices);
+
+#ifdef INCLUDE_PRODUCTION_TESTS
+                    Teufel::Task::Bluetooth::postMessage(ot_id, Teufel::Ux::Bluetooth::AudioBypassProdTest::Exit);
+#endif // INCLUDE_PRODUCTION_TESTS
+
+                    // Play factory reset sound icon
+                    postMessage(ot_id,
+                                Tua::RequestSoundIcon{ACTIONSLINK_SOUND_ICON_POSITIVE_FEEDBACK,
+                                                      ACTIONSLINK_SOUND_ICON_PLAYBACK_MODE_PLAY_IMMEDIATELY, false});
+                },
+                [](const Teufel::Ux::Bluetooth::PlayPause &)
+                {
+                    log_info("Play/Pause");
+                    if (!s_bluetooth.audio_source.has_value())
+                    {
+                        return;
+                    }
+
+                    switch (s_bluetooth.audio_source.value())
+                    {
+                        case ACTIONSLINK_AUDIO_SOURCE_A2DP1:
+                        case ACTIONSLINK_AUDIO_SOURCE_A2DP2:
+                            actionslink_bt_play_pause();
+                            break;
+                        case ACTIONSLINK_AUDIO_SOURCE_USB:
+                            actionslink_usb_play_pause();
+                            break;
+                        default:
+                            break;
+                    }
+                },
+                [](const Teufel::Ux::Bluetooth::NextTrack &)
+                {
+                    log_info("Next track");
+                    if (!s_bluetooth.audio_source.has_value())
+                    {
+                        return;
+                    }
+
+                    switch (s_bluetooth.audio_source.value())
+                    {
+                        case ACTIONSLINK_AUDIO_SOURCE_A2DP1:
+                        case ACTIONSLINK_AUDIO_SOURCE_A2DP2:
+                            actionslink_bt_next_track();
+                            break;
+                        case ACTIONSLINK_AUDIO_SOURCE_USB:
+                            actionslink_usb_next_track();
+                            break;
+                        default:
+                            break;
+                    }
+                },
+                [](const Teufel::Ux::Bluetooth::PreviousTrack &)
+                {
+                    log_info("Previous track");
+                    if (!s_bluetooth.audio_source.has_value())
+                    {
+                        return;
+                    }
+
+                    switch (s_bluetooth.audio_source.value())
+                    {
+                        case ACTIONSLINK_AUDIO_SOURCE_A2DP1:
+                        case ACTIONSLINK_AUDIO_SOURCE_A2DP2:
+                            actionslink_bt_previous_track();
+                            break;
+                        case ACTIONSLINK_AUDIO_SOURCE_USB:
+                            actionslink_usb_previous_track();
+                            break;
+                        default:
+                            break;
+                    }
+                },
+                [](const Tua::RequestSoundIcon &p)
+                {
+                    if (getProperty<Ux::Audio::SoundIconsActive>().value)
+                    {
+                        // If the sound icon is BT connected, we need to play it immediately after the BT connection,
+                        // except if the BT connection is established during(or before) the power on sound icon.
+                        // In this case we need to wait for the power on sound icon to finish before playing the BT.
+                        if (p.sound_icon == ACTIONSLINK_SOUND_ICON_BT_CONNECTED &&
+                            (s_bluetooth.power_on_sound_icon_ts == 0 ||
+                             board_get_ms_since(s_bluetooth.power_on_sound_icon_ts) < 500))
+                        {
+                            vTaskDelay(50);
+                            postMessage(ot_id, Tua::RequestSoundIcon{
+                                                   ACTIONSLINK_SOUND_ICON_BT_CONNECTED,
+                                                   ACTIONSLINK_SOUND_ICON_PLAYBACK_MODE_PLAY_IMMEDIATELY, false});
+                        }
+
+                        if (p.sound_icon == ACTIONSLINK_SOUND_ICON_POWER_ON)
+                        {
+                            s_bluetooth.power_on_sound_icon_ts = get_systick();
+                        }
+#if not defined(BOOTLOADER)
+                        log_high("Sound icon (request) (si: %d)", p.sound_icon);
+#endif
+                        actionslink_play_sound_icon(p.sound_icon, p.playback_mode, p.loop_forever);
+
+                        s_bluetooth.curr_sound_icon          = p.sound_icon;
+                        s_bluetooth.curr_sound_icon_begin_ts = get_systick();
+                    }
+                    else
+                    {
+                        log_debug("Sound icon play (si: %d) requested. Sound icons inactive.", p.sound_icon);
+                    }
+                },
+                [](const Tua::StopPlayingSoundIcon &p)
+                {
+                    if (getProperty<Ux::Audio::SoundIconsActive>().value)
+                    {
+#if not defined(BOOTLOADER)
+                        log_high("Stop sound icon request (%u)", static_cast<uint8_t>(p.sound_icon));
+#endif
+                        int ret = actionslink_stop_sound_icon(p.sound_icon);
+                        if (ret < 0)
+                        {
+                            log_err("stop sound icon status: %d", ret);
+                        }
+                        s_bluetooth.curr_sound_icon = ACTIONSLINK_SOUND_ICON_NONE;
+                    }
+                    else
+                    {
+                        log_debug("Sound icon stop requested. Sound icons inactive.");
+                    }
+                },
+                [](const Tua::EcoMode &p)
+                {
+                    if (actionslink_send_eco_mode_state(p.value) != 0)
+                    {
+                        // log_error("Failed to notify eco mode state");
+                    }
+                },
+#ifdef INCLUDE_PRODUCTION_TESTS
+                [](Teufel::Ux::Bluetooth::FWVersionProdTest)
+                {
+                    actionslink_firmware_version_t version = {0};
+                    if (get_bt_fw_version(&version) == 0)
+                    {
+                        printf("BT:%d.%d.%d\r\n", version.major, version.minor, version.patch);
+                    }
+                },
+                [](Teufel::Ux::Bluetooth::DeviceNameProdTest)
+                {
+                    uint8_t                  device_name_str_buffer[32] = {0};
+                    actionslink_buffer_dsc_t p_device_name_buf_dsc      = {
+                             .p_buffer    = device_name_str_buffer,
+                             .buffer_size = sizeof(device_name_str_buffer),
+                    };
+
+                    if (actionslink_get_this_device_name(&p_device_name_buf_dsc) == 0)
+                    {
+                        printf("NAME=%s\r\n", p_device_name_buf_dsc.p_buffer);
+                    }
+                },
+                [](Teufel::Ux::Bluetooth::BtMacAddressProdTest)
+                {
+                    uint64_t bt_mac_address;
+                    if (actionslink_get_bt_mac_address(&bt_mac_address) == 0)
+                    {
+                        char formattedMACAddr[18]; // 17 chars for the MAC address +1 for null char
+                        hex_to_mac(bt_mac_address, formattedMACAddr);
+                        printf("%s\r\n", formattedMACAddr);
+                    }
+                },
+                [](Teufel::Ux::Bluetooth::BleMacAddressProdTest)
+                {
+                    uint64_t ble_mac_address;
+                    if (actionslink_get_ble_mac_address(&ble_mac_address) == 0)
+                    {
+                        char formattedMACAddr[18]; // 17 chars for the MAC address +1 for null char
+                        hex_to_mac(ble_mac_address, formattedMACAddr);
+                        printf("%s\r\n", formattedMACAddr);
+                    }
+                },
+                [](Teufel::Ux::Bluetooth::BtRssiProdTest)
+                {
+                    int8_t rssi_val;
+                    if (actionslink_get_bt_rssi_value(&rssi_val) == 0)
+                    {
+                        printf("RSSI=%d\r\n", rssi_val);
+                    }
+                },
+                [](Teufel::Ux::Bluetooth::SetVolumeProdTest &p)
+                {
+                    if (p.volume_req > 32)
+                    {
+                        log_error("Requested volume must be within 0-32");
+                        return;
+                    }
+                    // The AVRCP volume range is 0-127, the requested Prod Test volume range is between 0-32
+                    uint8_t avrcp_vol = (p.volume_req * 127) / 32;
+                    log_highlight("Setting absolute AVRCP volume to: %d", avrcp_vol);
+                    if (actionslink_set_bt_absolute_avrcp_volume(avrcp_vol) == 0)
+                    {
+                        printf("Vol Set=%.2d\r\n", p.volume_req);
+                    }
+                },
+                [](Teufel::Ux::Bluetooth::AudioBypassProdTest &p)
+                {
+                    switch (p)
+                    {
+                        case Tub::AudioBypassProdTest::Enter:
+                            if (board_link_amps_setup_woofer(AMP_MODE_BYPASS) != 0)
+                            {
+                                log_error("Woofer failed to enter Audio Bypass Mode");
+                            }
+
+                            if (board_link_amps_setup_tweeter(AMP_MODE_BYPASS) != 0)
+                            {
+                                log_error("Tweeter failed to enter Audio Bypass Mode");
+                            }
+                            break;
+                        case Tub::AudioBypassProdTest::Exit:
+                            if (board_link_amps_setup_woofer(AMP_MODE_NORMAL) != 0)
+                            {
+                                log_error("Woofer failed to exit Audio Bypass Mode");
+                            }
+
+                            if (board_link_amps_setup_tweeter(AMP_MODE_NORMAL) != 0)
+                            {
+                                log_error("Tweeter failed to exit Audio Bypass Mode");
+                            }
+                            break;
+                    }
+                },
+#endif // INCLUDE_PRODUCTION_TESTS
+            },
+            msg);
+    },
+    .StackBuffer = bluetooth_task_stack,
+    .StaticTask  = &bluetooth_task_buffer,
+    .StaticQueue = &queue_static,
+    .QueueBuffer = queue_static_buffer,
+};
+
+int start()
+{
+    static_assert(sizeof(BluetoothMessage) <= 16, "Queue message size exceeded 4 bytes!");
+
+    task_handler = GenericThread::create(&threadConfig);
+    APP_ASSERT(task_handler);
+
+    return 0;
+}
+
+int postMessage(Teufel::Ux::System::Task source_task, BluetoothMessage msg)
+{
+    return GenericThread::PostMsg(task_handler, static_cast<uint8_t>(source_task), msg);
+}
+
+static int actionslink_read_buffer(uint8_t *p_data, uint8_t length, uint32_t timeout)
+{
+    (void) timeout;
+    return bsp_bluetooth_uart_rx(p_data, (uint32_t) length);
+}
+
+static int actionslink_write_buffer(const uint8_t *p_data, uint8_t length, uint32_t timeout)
+{
+    (void) timeout;
+    if (p_data != nullptr && length > 0)
+    {
+        return bsp_bluetooth_uart_tx(p_data, length);
+    }
+    return 0;
+}
+
+static void actionslink_print_log(actionslink_log_level_t level, const char *dsc)
+{
+    switch (level)
+    {
+        case ACTIONSLINK_LOG_LEVEL_ERROR:
+            log_error("Actions: %s", dsc);
+            break;
+        case ACTIONSLINK_LOG_LEVEL_WARN:
+            log_warning("Actions: %s", dsc);
+            break;
+        case ACTIONSLINK_LOG_LEVEL_INFO:
+            log_info("Actions: %s", dsc);
+            break;
+        case ACTIONSLINK_LOG_LEVEL_DEBUG:
+            log_debug("Actions: %s", dsc);
+            break;
+        case ACTIONSLINK_LOG_LEVEL_TRACE:
+            log_debug("Actions: %s", dsc);
+            break;
+        default:
+            break;
+    }
+}
+
+}
+
+// Properties public API
+namespace Teufel::Ux::Bluetooth
+{
+TS_GET_PROPERTY_NON_OPT_FN(Teufel::Task::Bluetooth, m_bt_status, Status)
+TS_GET_PROPERTY_NON_OPT_FN(Teufel::Task::Bluetooth, m_streaming_active, StreamingActive)
+}
