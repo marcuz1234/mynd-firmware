@@ -47,6 +47,7 @@ namespace Teufel::Task::Bluetooth
 namespace Tua = Teufel::Ux::Audio;
 namespace Tub = Teufel::Ux::Bluetooth;
 namespace Tus = Teufel::Ux::System;
+namespace Tua = Teufel::Ux::Audio;
 
 static Teufel::Ux::System::Task                                ot_id        = Teufel::Ux::System::Task::Bluetooth;
 static Teufel::GenericThread::GenericThread<BluetoothMessage> *task_handler = nullptr;
