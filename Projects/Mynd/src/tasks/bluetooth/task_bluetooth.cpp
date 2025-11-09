@@ -86,9 +86,6 @@ static struct
     uint32_t                 power_on_sound_icon_ts   = 0u;
     actionslink_sound_icon_t curr_sound_icon          = ACTIONSLINK_SOUND_ICON_NONE;
     uint32_t                 curr_sound_icon_begin_ts = 0u;
-
-    // Timestamp when no BT connections were present. Used for auto-off.
-    uint32_t                 last_no_bt_connection_ts = 0u;
 } s_bluetooth;
 
 // clang-format off
@@ -545,8 +542,6 @@ static const actionslink_event_handlers_t actionslink_event_handlers = {
             if (s_bluetooth.number_of_connected_devices < 2)
             {
                 s_bluetooth.number_of_connected_devices++;
-                // A BT connection arrived — clear the "no BT connection" timer
-                s_bluetooth.last_no_bt_connection_ts = 0u;
             }
             else
             {
@@ -565,12 +560,6 @@ static const actionslink_event_handlers_t actionslink_event_handlers = {
                 postMessage(ot_id,
                             Tua::RequestSoundIcon{ACTIONSLINK_SOUND_ICON_BT_DISCONNECTED,
                                                   ACTIONSLINK_SOUND_ICON_PLAYBACK_MODE_PLAY_AFTER_CURRENT, false});
-
-                // If no devices are connected now, start the idle timer (if not already set)
-                if (s_bluetooth.number_of_connected_devices == 0 && s_bluetooth.last_no_bt_connection_ts == 0u)
-                {
-                    s_bluetooth.last_no_bt_connection_ts = get_systick();
-                }
             }
             else
             {
@@ -692,43 +681,6 @@ static const GenericThread::Config<BluetoothMessage> threadConfig = {
 
         if (isProperty(Tus::PowerState::On))
         {
-            // Auto-off logic: only consider BT connections (ignore USB/AUX per request),
-            // and respect DFU, pairing and streaming states (do not auto-off while any active).
-            if ( !s_bluetooth.dfu_mode_is_active &&
-                s_bluetooth.pairing_state == ACTIONSLINK_BT_PAIRING_STATE_IDLE &&
-                s_bluetooth.csb_state == ACTIONSLINK_CSB_STATE_DISABLED &&
-                !isProperty(Tub::StreamingActive{false}))
-            {
-                if (s_bluetooth.number_of_connected_devices == 0)
-                {
-                    if (s_bluetooth.last_no_bt_connection_ts == 0u)
-                    {
-                        // Start the idle timer
-                        s_bluetooth.last_no_bt_connection_ts = get_systick();
-                    }
-                    else if (board_get_ms_since(s_bluetooth.last_no_bt_connection_ts) >= 5u * 60u * 1000u)
-                    {
-                        log_info("No BT connections for >= 5 minutes — powering BT module off (idle timer)");
-                        if (actionslink_set_power_state(ACTIONSLINK_POWER_STATE_OFF) != 0)
-                        {
-                            log_error("BT module power off request failed");
-                        }
-                        // reset timer so we don't repeatedly request
-                        s_bluetooth.last_no_bt_connection_ts = 0u;
-                    }
-                }
-                else
-                {
-                    // There is at least one BT connection — clear the idle timer
-                    s_bluetooth.last_no_bt_connection_ts = 0u;
-                }
-            }
-            else
-            {
-                // Conditions prevent auto-off, reset timer so full interval is required after they clear
-                s_bluetooth.last_no_bt_connection_ts = 0u;
-            }
-
             actionslink_tick();
         }
     },
@@ -739,9 +691,6 @@ static const GenericThread::Config<BluetoothMessage> threadConfig = {
         board_link_bluetooth_init();
         board_link_bluetooth_set_power(false);
         board_link_bluetooth_reset(true);
-
-        // Ensure no leftover idle timer survives a reboot
-        s_bluetooth.last_no_bt_connection_ts = 0u;
 
         board_link_usb_switch_init();
         board_link_usb_switch_to_bluetooth();
@@ -765,8 +714,9 @@ static const GenericThread::Config<BluetoothMessage> threadConfig = {
                             // We need to mute the amps immediately after playing the power off sound icon to prevent
                             // music from playing after the sound icon is played (can't send a command to pause in AUX
                             // source) There is some delay between here and the audio task receiving the power off
-                            // command, so we need to consider that the sound icon is played completely a bit before it's
+                            // command, so we need consider that the sound icon is played completely a bit before it's
                             // actually done
+                            // TODO: Investigate this delay, it seems suspiciously and unnecessarily long (50-70 ms)
                             vTaskDelay(pdMS_TO_TICKS(1780));
                             break;
                         }
