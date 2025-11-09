@@ -694,7 +694,7 @@ static const GenericThread::Config<BluetoothMessage> threadConfig = {
         {
             // Auto-off logic: only consider BT connections (ignore USB/AUX per request),
             // and respect DFU, pairing and streaming states (do not auto-off while any active).
-            constexpr uint32_t kBtIdleTimeoutMs = 5u * 60u * 1000u; // 5 minutes
+            // constexpr uint32_t kBtIdleTimeoutMs = 5u * 60u * 1000u; // 5 minutes
 
             const bool can_auto_power_off =
                 !s_bluetooth.dfu_mode_is_active &&
@@ -711,7 +711,7 @@ static const GenericThread::Config<BluetoothMessage> threadConfig = {
                         // Start the idle timer
                         s_bluetooth.last_no_bt_connection_ts = get_systick();
                     }
-                    else if (board_get_ms_since(s_bluetooth.last_no_bt_connection_ts) >= kBtIdleTimeoutMs)
+                    else if (board_get_ms_since(s_bluetooth.last_no_bt_connection_ts) >= 5u * 60u * 1000u)
                     {
                         log_info("No BT connections for >= 5 minutes — powering BT module off (idle timer)");
                         if (actionslink_set_power_state(ACTIONSLINK_POWER_STATE_OFF) != 0)
