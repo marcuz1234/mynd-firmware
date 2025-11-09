@@ -319,14 +319,14 @@ static const actionslink_request_handlers_t actionslink_request_handlers = {
     .on_request_get_mcu_firmware_version =
         +[](uint8_t seq_id)
         {
-            log_debug("Request MCU firmware version(seq_id: %d)", seq_id);
+            //log_debug("Request MCU firmware version(seq_id: %d)", seq_id);
             actionslink_send_get_mcu_firmware_version_response(seq_id, VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH,
                                                                nullptr);
         },
     .on_request_get_pdcontroller_firmware_version =
         +[](uint8_t seq_id)
         {
-            log_debug("Request PD controller firmware version(seq_id: %d)", seq_id);
+            //log_debug("Request PD controller firmware version(seq_id: %d)", seq_id);
             uint8_t pd_version = 0x00;
             if (board_link_usb_pd_controller_fw_version(&pd_version))
             {
@@ -338,7 +338,7 @@ static const actionslink_request_handlers_t actionslink_request_handlers = {
     .on_request_get_color =
         +[](uint8_t seq_id)
         {
-            log_debug("Request color(seq_id: %d)", seq_id);
+            //log_debug("Request color(seq_id: %d)", seq_id);
             auto color        = Storage::load<Tus::Color>().value_or(Tus::Color::Black);
             auto mapped_color = Teufel::Core::mapValue(ColorMapper, color).value_or(ACTIONSLINK_DEVICE_COLOR_BLACK);
             actionslink_send_get_color_response(seq_id, mapped_color);
@@ -346,7 +346,7 @@ static const actionslink_request_handlers_t actionslink_request_handlers = {
     .on_request_set_off_timer =
         +[](uint8_t seq_id, bool is_enabled, uint32_t value)
         {
-            log_debug("Request set off timer(seq_id: %d, minutes: %d, state: %d)", seq_id, value, is_enabled);
+            //log_debug("Request set off timer(seq_id: %d, minutes: %d, state: %d)", seq_id, value, is_enabled);
             Teufel::Task::System::postMessage(ot_id, Teufel::Ux::System::OffTimerEnabled{.value = is_enabled});
             Teufel::Task::System::postMessage(ot_id,
                                               Teufel::Ux::System::OffTimer{.value = static_cast<uint8_t>(value)});
@@ -355,14 +355,14 @@ static const actionslink_request_handlers_t actionslink_request_handlers = {
     .on_request_get_off_timer =
         +[](uint8_t seq_id)
         {
-            log_debug("Request get off timer(seq_id: %d)", seq_id);
+            //log_debug("Request get off timer(seq_id: %d)", seq_id);
             actionslink_send_get_off_timer_response(seq_id, getProperty<Ux::System::OffTimerEnabled>().value,
                                                     getProperty<Ux::System::OffTimer>().value);
         },
     .on_request_set_brightness =
         +[](uint8_t seq_id, uint32_t value)
         {
-            log_debug("Request set brightness(seq_id: %d, brightness: %d)", seq_id, value);
+            //log_debug("Request set brightness(seq_id: %d, brightness: %d)", seq_id, value);
             value = std::clamp<uint32_t>(value, 0u, 100u);
             Teufel::Task::Audio::postMessage(ot_id,
                                              Teufel::Ux::System::LedBrightness{.value = static_cast<uint8_t>(value)});
@@ -371,13 +371,13 @@ static const actionslink_request_handlers_t actionslink_request_handlers = {
     .on_request_get_brightness =
         +[](uint8_t seq_id)
         {
-            log_debug("Request get brightness(seq_id: %d)", seq_id);
+            //log_debug("Request get brightness(seq_id: %d)", seq_id);
             actionslink_send_get_brightness_response(seq_id, getProperty<Ux::System::LedBrightness>().value);
         },
     .on_request_set_bass =
         +[](uint8_t seq_id, int32_t bass)
         {
-            log_debug("Request set bass(seq_id: %d, bass: %d)", seq_id, bass);
+            //log_debug("Request set bass(seq_id: %d, bass: %d)", seq_id, bass);
             // bass = std::clamp<int32_t>(bass, CONFIG_DSP_BASS_MIN, CONFIG_DSP_BASS_MAX);
             Teufel::Task::Audio::postMessage(ot_id, Teufel::Ux::Audio::BassLevel{.value = static_cast<int8_t>(bass)});
             actionslink_send_set_bass_response(seq_id, ACTIONSLINK_ERROR_SUCCESS);
@@ -385,13 +385,13 @@ static const actionslink_request_handlers_t actionslink_request_handlers = {
     .on_request_get_bass =
         +[](uint8_t seq_id)
         {
-            log_debug("Request get bass(seq_id: %d)", seq_id);
+            //log_debug("Request get bass(seq_id: %d)", seq_id);
             actionslink_send_get_bass_response(seq_id, getProperty<Ux::Audio::BassLevel>().value);
         },
     .on_request_set_treble =
         +[](uint8_t seq_id, int32_t treble)
         {
-            log_debug("Request set treble(seq_id: %d, treble: %d)", seq_id, treble);
+            //log_debug("Request set treble(seq_id: %d, treble: %d)", seq_id, treble);
             // treble = std::clamp<int32_t>(treble, CONFIG_DSP_TREBLE_MIN, CONFIG_DSP_TREBLE_MAX);
             Teufel::Task::Audio::postMessage(ot_id,
                                              Teufel::Ux::Audio::TrebleLevel{.value = static_cast<int8_t>(treble)});
@@ -400,39 +400,39 @@ static const actionslink_request_handlers_t actionslink_request_handlers = {
     .on_request_get_treble =
         +[](uint8_t seq_id)
         {
-            log_debug("Request get treble(seq_id: %d)", seq_id);
+            //log_debug("Request get treble(seq_id: %d)", seq_id);
             actionslink_send_get_treble_response(seq_id, getProperty<Ux::Audio::TrebleLevel>().value);
         },
     .on_request_set_eco_mode =
         +[](uint8_t seq_id, bool is_enabled)
         {
-            log_debug("Request set eco mode(seq_id: %d, state: %d)", seq_id, is_enabled);
+            //log_debug("Request set eco mode(seq_id: %d, state: %d)", seq_id, is_enabled);
             Teufel::Task::Audio::postMessage(ot_id, Ux::Audio::EcoMode{.value = is_enabled});
             actionslink_send_set_eco_mode_response(seq_id, ACTIONSLINK_ERROR_SUCCESS);
         },
     .on_request_get_eco_mode =
         +[](uint8_t seq_id)
         {
-            log_debug("Request get eco mode(seq_id: %d)", seq_id);
+            //log_debug("Request get eco mode(seq_id: %d)", seq_id);
             actionslink_send_get_eco_mode_response(seq_id, getProperty<Ux::Audio::EcoMode>().value);
         },
     .on_request_set_sound_icons =
         +[](uint8_t seq_id, bool is_enabled)
         {
-            log_debug("Request set sound icons(seq_id: %d, state: %d)", seq_id, is_enabled);
+            //log_debug("Request set sound icons(seq_id: %d, state: %d)", seq_id, is_enabled);
             Teufel::Task::Audio::postMessage(ot_id, Ux::Audio::SoundIconsActive{.value = is_enabled});
             actionslink_send_set_sound_icons_response(seq_id, ACTIONSLINK_ERROR_SUCCESS);
         },
     .on_request_get_sound_icons =
         +[](uint8_t seq_id)
         {
-            log_debug("Request get sound icons(seq_id: %d)", seq_id);
+            //log_debug("Request get sound icons(seq_id: %d)", seq_id);
             actionslink_send_get_sound_icons_response(seq_id, getProperty<Ux::Audio::SoundIconsActive>().value);
         },
     .on_request_set_battery_friendly_charging =
         +[](uint8_t seq_id, bool is_enabled)
         {
-            log_debug("Request set battery friendly charging(seq_id: %d, state: %d)", seq_id, is_enabled);
+            //log_debug("Request set battery friendly charging(seq_id: %d, state: %d)", seq_id, is_enabled);
             Teufel::Task::Audio::postMessage(ot_id, is_enabled ? Tus::ChargeType::BatteryFriendly
                                                                : Tus::ChargeType::FastCharge);
             actionslink_send_set_battery_friendly_charging_response(seq_id, ACTIONSLINK_ERROR_SUCCESS);
@@ -446,14 +446,14 @@ static const actionslink_request_handlers_t actionslink_request_handlers = {
     .on_request_get_battery_capacity =
         +[](uint8_t seq_id)
         {
-            log_debug("Request get battery capacity(seq_id: %d)", seq_id);
+            //log_debug("Request get battery capacity(seq_id: %d)", seq_id);
             // TODO: send the actual battery capacity once it is implemented
             actionslink_send_get_battery_capacity_response(seq_id, 4900);
         },
     .on_request_get_battery_max_capacity =
         +[](uint8_t seq_id)
         {
-            log_debug("Request get battery max capacity(seq_id: %d)", seq_id);
+            //log_debug("Request get battery max capacity(seq_id: %d)", seq_id);
             actionslink_send_get_battery_max_capacity_response(seq_id, 4900);
         },
 };
@@ -892,7 +892,7 @@ static const GenericThread::Config<BluetoothMessage> threadConfig = {
                     }
 
                     // TODO: Confirm with UX on whether we want to do this regardless of audio source
-                    log_debug("Enabling bluetooth reconnection");
+                    //log_debug("Enabling bluetooth reconnection");
                     if (actionslink_enable_bt_reconnection(true) != 0)
                     {
                         log_error("Failed to enable bluetooth reconnection");
@@ -949,7 +949,7 @@ static const GenericThread::Config<BluetoothMessage> threadConfig = {
                 },
                 [](const Teufel::Ux::Bluetooth::NotifyAuxConnectionChange &p)
                 {
-                    log_debug("Notifying aux connection change: %d", p.connected);
+                    //log_debug("Notifying aux connection change: %d", p.connected);
                     if (actionslink_send_aux_connection_notification(p.connected) != 0)
                     {
                         log_error("Failed to notify aux connection");
@@ -957,7 +957,7 @@ static const GenericThread::Config<BluetoothMessage> threadConfig = {
                 },
                 [](const Teufel::Ux::Bluetooth::NotifyUsbConnectionChange &p)
                 {
-                    log_debug("Notifying USB connection change: %d", p.connected);
+                    //log_debug("Notifying USB connection change: %d", p.connected);
                     s_bluetooth.usb_plug_connected = p.connected;
                     if (actionslink_send_usb_connection_notification(p.connected) != 0)
                     {
@@ -1117,7 +1117,7 @@ static const GenericThread::Config<BluetoothMessage> threadConfig = {
                     }
                     else
                     {
-                        log_debug("Sound icon play (si: %d) requested. Sound icons inactive.", p.sound_icon);
+                        //log_debug("Sound icon play (si: %d) requested. Sound icons inactive.", p.sound_icon);
                     }
                 },
                 [](const Tua::StopPlayingSoundIcon &p)
@@ -1136,7 +1136,7 @@ static const GenericThread::Config<BluetoothMessage> threadConfig = {
                     }
                     else
                     {
-                        log_debug("Sound icon stop requested. Sound icons inactive.");
+                        //log_debug("Sound icon stop requested. Sound icons inactive.");
                     }
                 },
                 [](const Tua::EcoMode &p)
@@ -1294,10 +1294,10 @@ static void actionslink_print_log(actionslink_log_level_t level, const char *dsc
             log_info("Actions: %s", dsc);
             break;
         case ACTIONSLINK_LOG_LEVEL_DEBUG:
-            log_debug("Actions: %s", dsc);
+            //log_debug("Actions: %s", dsc);
             break;
         case ACTIONSLINK_LOG_LEVEL_TRACE:
-            log_debug("Actions: %s", dsc);
+            //log_debug("Actions: %s", dsc);
             break;
         default:
             break;
