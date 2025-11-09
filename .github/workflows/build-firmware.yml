@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     # needs: build_bootloader
     container:
-      image: ghcr.io/teufelaudio/myndfirmware:latest
+      image: ghcr.io/marcuz1234/myndfirmware:latest
       # Use this line instead if you built and pushed the container to your own GHCR
       # image: ghcr.io/${{ github.repository_owner }}/myndfirmware:latest
     steps:
