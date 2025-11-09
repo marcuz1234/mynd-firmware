@@ -810,7 +810,7 @@ static const GenericThread::Config<BluetoothMessage> threadConfig = {
                             board_link_bluetooth_reset(false);
                             board_link_bluetooth_set_power(true);
 
-                            bsp_bluetooth_uart.clear_buffer();
+                            bsp_bluetooth_uart_clear_buffer();
                             actionslink_init(&actionslink_configuration, &actionslink_event_handlers,
                                              &actionslink_request_handlers);
 
