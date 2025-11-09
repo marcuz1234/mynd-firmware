@@ -722,12 +722,12 @@ static const GenericThread::Config<BluetoothMessage> threadConfig = {
                     // There is at least one BT connection — clear the idle timer
                     s_bluetooth.last_no_bt_connection_ts = 0u;
                 }
-            //}
+            /*}
             else
             {
                 // Conditions prevent auto-off, reset timer so full interval is required after they clear
                 s_bluetooth.last_no_bt_connection_ts = 0u;
-            }
+            }*/
 
             actionslink_tick();
         }
