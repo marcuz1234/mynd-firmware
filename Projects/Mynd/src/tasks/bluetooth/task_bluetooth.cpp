@@ -709,10 +709,7 @@ static const GenericThread::Config<BluetoothMessage> threadConfig = {
                     else if (board_get_ms_since(s_bluetooth.last_no_bt_connection_ts) >= 300000u)
                     {
                         log_info("No BT connections for > 5 min — powering BT off");
-                        if (board_link_bluetooth_set_power(false) != 0)
-                        {
-                            log_error("BT power off request failed");
-                        }
+                        board_link_bluetooth_set_power(false);
                         // reset timer so we don't repeatedly request
                         s_bluetooth.last_no_bt_connection_ts = 0u;
                     }
