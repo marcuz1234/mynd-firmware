@@ -781,6 +781,7 @@ static const GenericThread::Config<AudioMessage> threadConfig = {
                             // Both amps' datasheets specify that the PDN pin should be high for at least 5 ms
                             // before the I2S clocks start (provided by the BT module, synchronized by the system task)
                             board_link_amps_enable(true);
+
                             // Likely not necessary considering all the stuff that needs to happen
                             // before the amps are initialized when we get PowerState::On
                             vTaskDelay(pdMS_TO_TICKS(5));

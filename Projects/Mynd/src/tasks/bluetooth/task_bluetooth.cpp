@@ -41,12 +41,6 @@
 #define TASK_BLUETOOTH_STACK_SIZE 448
 #define QUEUE_SIZE                8
 
-// Top of Projects/Mynd/src/tasks/bluetooth/task_bluetooth.cpp
-static uint32_t bt_disconnect_timer_ms = 0;
-static bool bt_powered = true;
-#define BT_AUTO_OFF_TIMEOUT_MS 300000 // 5 minutes (ms)
-#define BT_TASK_LOOP_INTERVAL_MS 1000 // 1s, adjust if your period is different
-
 namespace Teufel::Task::Bluetooth
 {
 
@@ -688,25 +682,6 @@ static const GenericThread::Config<BluetoothMessage> threadConfig = {
         if (isProperty(Tus::PowerState::On))
         {
             actionslink_tick();
-
-            // Check BT connection state
-            Teufel::Ux::Bluetooth::Status bt_status;
-            Teufel::Ux::Bluetooth::getProperty(&bt_status);
-            bool bt_connected = (bt_status == Teufel::Ux::Bluetooth::Status::BluetoothConnected);
-
-            if (bt_powered && !bt_connected) {
-                bt_disconnect_timer_ms += BT_TASK_LOOP_INTERVAL_MS; // Call this every 1 second
-                if (bt_disconnect_timer_ms >= BT_AUTO_OFF_TIMEOUT_MS) {
-                    // 5 min passed while not connected, turn BT off
-                    board_link_bluetooth_set_power(false);
-                    bt_powered = false;
-                    // Optionally: log_info("BT auto off after 5 min idle");
-                }
-            }
-            else if (bt_connected) {
-                bt_disconnect_timer_ms = 0; // Reset once connected
-            }
-
         }
     },
     .Callback_Init =
@@ -780,9 +755,6 @@ static const GenericThread::Config<BluetoothMessage> threadConfig = {
                         {
                             board_link_bluetooth_reset(false);
                             board_link_bluetooth_set_power(true);
-
-                            bt_powered = true;
-                            bt_disconnect_timer_ms = 0;
 
                             bsp_bluetooth_uart_clear_buffer();
                             actionslink_init(&actionslink_configuration, &actionslink_event_handlers,
