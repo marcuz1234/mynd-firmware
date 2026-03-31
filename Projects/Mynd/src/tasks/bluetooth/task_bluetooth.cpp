@@ -689,6 +689,21 @@ static const GenericThread::Config<BluetoothMessage> threadConfig = {
         if (isProperty(Tus::PowerState::On))
         {
             actionslink_tick();
+
+            Teufel::Ux::Bluetooth::Status bt_status;
+            Teufel::Ux::Bluetooth::getProperty(&bt_status);
+            bool bt_connected = (bt_status == Teufel::Ux::Bluetooth::Status::BluetoothConnected);
+
+            if (bt_powered && !bt_connected) {
+                bt_disconnect_timer_ms += BT_TASK_LOOP_INTERVAL_MS;
+                if (bt_disconnect_timer_ms >= BT_AUTO_OFF_TIMEOUT_MS) {
+                    board_link_bluetooth_set_power(false);
+                    bt_powered = false;
+                }
+            } else if (bt_connected) {
+                bt_disconnect_timer_ms = 0;
+            }
+
         }
     },
     .Callback_Init =
