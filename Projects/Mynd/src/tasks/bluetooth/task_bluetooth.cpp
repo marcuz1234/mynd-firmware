@@ -44,8 +44,7 @@
 // Am Anfang der Datei:
 static uint32_t bt_disconnect_timer_ms = 0;
 static bool bt_powered = true;
-#define BT_AUTO_OFF_TIMEOUT_MS 120000  // 2 Minuten = 120000 ms
-#define BT_TASK_LOOP_INTERVAL_MS 1000  // Annahme: 1s Intervall
+#define BTOFF_TOUT_MS 120000  // 2 Minuten = 120000 ms
 
 
 namespace Teufel::Task::Bluetooth
@@ -695,8 +694,8 @@ static const GenericThread::Config<BluetoothMessage> threadConfig = {
             bool bt_connected = (bt_status == Teufel::Ux::Bluetooth::Status::BluetoothConnected);
 
             if (bt_powered && !bt_connected) {
-                bt_disconnect_timer_ms += BT_TASK_LOOP_INTERVAL_MS;
-                if (bt_disconnect_timer_ms >= BT_AUTO_OFF_TIMEOUT_MS) {
+                bt_disconnect_timer_ms += 1000;
+                if (bt_disconnect_timer_ms >= BTOFF_TOUT_MS) {
                     board_link_bluetooth_set_power(false);
                     bt_powered = false;
                 }
