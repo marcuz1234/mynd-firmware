@@ -780,16 +780,7 @@ static const GenericThread::Config<AudioMessage> threadConfig = {
 
                             // Both amps' datasheets specify that the PDN pin should be high for at least 5 ms
                             // before the I2S clocks start (provided by the BT module, synchronized by the system task)
-                            
-                            //board_link_amps_enable(true);
-                            if (active_audio_source == AUX_INPUT || active_audio_source == USB_INPUT) {
-                                board_link_amps_enable(true);
-                            } else if (active_audio_source == BLUETOOTH_INPUT && bt_powered) {
-                                board_link_amps_enable(true);
-                            } else {
-                                board_link_amps_enable(false);
-                            }
-
+                            board_link_amps_enable(true);
                             // Likely not necessary considering all the stuff that needs to happen
                             // before the amps are initialized when we get PowerState::On
                             vTaskDelay(pdMS_TO_TICKS(5));
