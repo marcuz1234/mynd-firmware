@@ -44,8 +44,6 @@
 // Am Anfang der Datei:
 static uint32_t bt_disconnect_timer_ms = 0;
 static bool bt_powered = true;
-#define BTOFF_TOUT_MS 120000  // 2 Minuten = 120000 ms
-
 
 namespace Teufel::Task::Bluetooth
 {
@@ -695,7 +693,7 @@ static const GenericThread::Config<BluetoothMessage> threadConfig = {
 
             if (bt_powered && !bt_connected) {
                 bt_disconnect_timer_ms += 1000;
-                if (bt_disconnect_timer_ms >= BTOFF_TOUT_MS) {
+                if (bt_disconnect_timer_ms >= 120000) { // 2 Minuten = 120000 ms
                     board_link_bluetooth_set_power(false);
                     bt_powered = false;
                 }
